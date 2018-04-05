@@ -1,0 +1,9 @@
+
+#! /bin/bash
+
+echo "To view linux syscalls : cd /usr/include/x86_64-linux-gnu/asm"
+echo " and view unistd_64.h "
+echo "some extra notes : rax - syscall number , rdi,rsi,rdx,r10,r8,r9 - first arg to sixth arg"
+cd /usr/include/x86_64-linux-gnu/asm/ 
+subl unistd_64.h 
+

@@ -1,0 +1,5 @@
+#! /bin/bash
+
+echo "use compilenasm <file>.nasm <linked>.o <executeblename>"
+nasm -felf64 $1 -o $2
+ld $2 -o $3
