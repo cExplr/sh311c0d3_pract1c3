@@ -3,7 +3,7 @@ section .text:
 _start:
     call main
 
-    message: db 'What is the length?',0 
+    message: db 'What is the length?',0xa,0h 
        ; the message whose string we want to count
        ; dont forget the null terminator
 
@@ -13,7 +13,7 @@ main:
     mov rcx, rax	; make a copy of the string
     call strlen		; call strlen function which we wrote
     xor rdi, rdi	; set exit status code to 0 by default
-    cmp rax,19		; check if strlength is correct
+    cmp rax,20		; check if strlength is correct--EDIT HERE
     jnz incorrect	; if not correct,jump to incorrect
     xor rax, rax
     inc rax		; set to write syscall
